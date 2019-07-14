@@ -23,7 +23,7 @@ The course covers the following topics:
    * Overview of supervised learning: assessing model accuracy, regression versus classification.
    * Regression methods: OLS, shrinkage methods (the ridge and the lasso), variable selection, dimension reduction w/ PCA, quantile regression, outlier detection.
    * Linear methods for classification: logistic regression, LDA, QDA, SVM.
-   * Revisiting model assesment and model selection: overfitting, bias-variance tradeoff, cross validation, bootstrapping.
+   * Revisiting model assessment and model selection: overfitting, bias-variance tradeoff, cross validation, bootstrapping.
    * Classification and regression trees: the theory, generalization to random forests, bagging, boosting.
    * Neural networks: model basics, how they work, introduction to deep learning.
    * Unsupervised learning: KMeans clustering, hierarchical clustering (theory and algorithms), distance functions, scaling and centering, examples.
