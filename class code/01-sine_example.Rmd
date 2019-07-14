@@ -1,0 +1,99 @@
+---
+title: "Is this a good model quiz?"
+author: "Adi Sarid / adi@sarid-ins.co.il"
+date: "July 2019"
+output: html_document
+---
+
+## Neither good nor bad situation
+
+We're trying to predict $\sin(x)$ using just $x$, i.e.:
+The "true" function is 
+\[
+y = sin(x) + \epsilon
+\]
+
+In this case, $\epsilon\sim N(\mu = 0, \sigma = 0.15)$.
+
+```{r}
+suppressMessages(suppressWarnings(library(tidyverse)))
+set.seed(0)
+data_in_partial <- tibble(x = seq(0, pi/2, length.out = 180)) %>% 
+  mutate(true_y = sin(x),
+         measured_y = sin(x) + rnorm(length(x), 0, 0.15))
+
+lm_y_partial <- lm(data = data_in_partial, formula = measured_y ~ x)
+
+summary(lm_y_partial)
+```
+
+This is a great opportunity to talk about the `summary` function when used on a linear regression model.
+
+We have a number of elements to discuss:
+
+   * Residuals
+   * p-values (significance testing)
+   * R-squared
+   
+# The nominal prediction
+
+Note how we're also extrapolating for the range $(\frac{\pi}{2}, \frac{3\pi}{2})$. That's what's wrong with the chart.
+
+```{r}
+# This is the nominal prediction, while hiding my "true" intentions
+
+data_in_partial %>% 
+  mutate(lm_y = predict(lm_y_partial)) %>% 
+  select(x, measured_y, lm_y) %>% 
+  bind_rows(tibble(x = seq(pi/2, pi/1.5, length.out = 90)) %>% 
+              mutate(lm_y = predict(lm_y_partial, .))) %>% 
+  gather(type, y, -x) %>% 
+  ggplot(aes(x = x, y = y, color = type)) + 
+  geom_point() + 
+  theme_bw()
+
+```
+
+## How wrong can this go on?
+
+Wrong. Very Wrong.
+
+```{r}
+
+data_in <- tibble(x = seq(0, 2*pi, length.out = 360)) %>% 
+  mutate(true_y = sin(x),
+         measured_y = sin(x) + rnorm(length(x), 0, 0.15)) %>% 
+  mutate(lm_y = predict(lm_y_partial, newdata = .))
+
+data_in %>% 
+  gather(type, y, -x) %>% 
+  ggplot(aes(x = x, y = y, color = type)) + 
+  geom_point() + 
+  theme_bw()
+
+```
+
+## Fixing the issue
+
+A linear model, but with a twist.
+
+```{r}
+
+lm_y_sine <- lm(data = data_in_partial, formula = measured_y ~ sin(x))
+
+summary(lm_y_sine)
+
+data_in_w_sine <- tibble(x = seq(0, 2*pi, length.out = 360)) %>% 
+  mutate(true_y = sin(x),
+         measured_y = sin(x) + rnorm(length(x), 0, 0.15)) %>% 
+  mutate(lm_y = predict(lm_y_partial, newdata = .),
+         lm_y_sin = predict(lm_y_sine, newdata = .))
+
+data_in_w_sine %>% 
+  select(-true_y, -measured_y) %>% 
+  gather(type, y, -x) %>% 
+  ggplot(aes(x = x, y = y, color = type)) + 
+  geom_line(size = 1.5) + 
+  theme_bw()
+
+```

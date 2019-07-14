@@ -39,6 +39,7 @@ The repository contains presentations (slides) in pptx and pdf formats, class ma
 ├── exercises
 |   ├── answers
 ├── datasets
+├── class code
 ```
 
 # Additional sources
