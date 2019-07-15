@@ -1,0 +1,137 @@
+---
+title: "Linear regression simple example"
+author: "Adi Sarid"
+date: "July 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Read the dataset
+
+We're using a data set with countries and the various types of alchohol consumption. The dataset was downloaded from the [tidytuesday project](https://github.com/rfordatascience/tidytuesday), the data set from Tuesday the 26th, 2018.
+
+We also add some country metadata from the [worldbank](https://data.worldbank.org/) and classification to continents from [here](https://datahub.io/JohnSnowLabs/country-and-continent-codes-list#data), then filtered some countries with missing data.
+
+```{r read alchohol data}
+alchohol <- read_csv("https://github.com/sarid-ins/statistical_learning_course/raw/master/datasets/alchohol_consumption/alchohol_consumption_ready.csv")
+
+```
+
+## The beer model
+
+How much beer is drank, as a function of spirit, wine, gdp per capita, and continent?
+Beer, spirit, and wine data for 2010, servings consumed per person, see [fivethirtyeight](https://fivethirtyeight.com/features/dear-mona-followup-where-do-people-drink-the-most-beer-wine-and-spirits/).
+
+```{r the beer model}
+
+beer_lm <- lm(beer_servings ~ spirit_servings + wine_servings + gdp2010 + Continent_Name,
+              data = alchohol)
+
+summary(beer_lm)
+
+```
+
+Let's analyze this model, step-by-step.
+
+### The `Call:`
+
+First, the `Call:` simply repeats what we "ordered".
+
+### Residuals
+
+The residuals provide the individual errors, i.e. the elements of the RSS (residual sum of squares).
+
+***
+
+**Question: what is the average of the residuals?**
+
+***
+
+Usually what we love to see is that the residuals are evenly distributed around $y=0$, with a similar variance along the $x$ axis, however this is not necessarily the case here. E.g., see how the variance decreases in the "wine servings" variable?
+
+No matter, we can still make do.
+
+```{r}
+alchohol_residuals <- alchohol %>% 
+         mutate(res = beer_lm$residuals) %>% 
+         select(country, spirit_servings:wine_servings, res) %>% 
+         gather(variable, x_value, -res, -country)
+
+ggplot(alchohol_residuals,
+       aes(x = x_value, y = res)) + 
+  geom_point() + 
+  facet_wrap(~ variable) + 
+  theme_bw() + 
+  ylab("Residual") + 
+  xlab("Number of servings")
+```
+
+By sorting the residuals, we can see where the model overshoots or undershoots, i.e., the 10 farthest predictions.
+```{r overshoot undeshoot}
+alchohol %>% 
+  mutate(res = beer_lm$residuals) %>%
+  select(country, spirit_servings:wine_servings, res) %>% 
+  arrange(desc(res)) %>% 
+  head() %>% 
+  knitr::kable()
+```
+
+### The regression table
+
+Enough about residuals, let's talk about the coefficients table. The `(intercept)` represents the model's $\beta_0$. The rest of the coefficients, as specified. 
+
+   * `Estimate` is the $\beta$ itself. 
+   * `Std. Error` is the estimate's variance (e.g., if we do this "measurement survey" again, and again, we might get some variations of the data. For each such variation we will get a different $\hat{\beta_i}$'s. These coefficients have a distribution, and this is an estimate to their standard error.
+   * The `t value` and the `Pr(>|t|)` (a.k.a., p-value) are significance tests based on the normal distribution, with statistic $\hat{\beta}_i$ and $\sigma$ as the std. error. A really high `t value` corresponds with a really low `Pr(>|t|)` value, and indicates that the coefficient is different than $0$.
+   * The stars indicate various levels of p-value. Special attention is given to $p<0.05$, though the p-value is [heavily disputed](https://amstat.tandfonline.com/doi/full/10.1080/00031305.2016.1154108#.XSx3YugzaUk) in our era of really big samples.
+   
+### Treatment of categorial variables
+
+Note the special treatment of categorial variables (i.e., `Continent`).
+
+*** 
+
+**How many continents in the regression versus the levels in the data? why?**
+
+***
+
+### The residual starndard error
+
+The residual standard error, at the buttom of the table, reports an estimate for the $\epsilon$'s (error) standard deviation. While degrees of freedom signifies the sample size minus the number of coefficients, i.e.: $df=n-p-1$.
+
+### Multiple R^2 and Adjusted $R^2$
+
+These measure the fitness of the model. The $R^2$ is the proportion of our model to a nominal naive model (a simple average). The Adjusted $R^2$ uses a similar approach but "fines" the use of many features.
+
+### The F-Statistic
+
+The F-statistic is the ratio of:
+
+\[
+F = \frac{(TSS-RSS)/p}{RSS/(n-p-1)}
+\]
+
+It has its own "F distribution" when normality and homoschedastity of the model are assumed. 
+
+Is can be used for the significance test which examines the hypothesis:
+\[
+H_0:\beta_0=\beta_1=\beta_2=\ldots=\beta_p=0\\
+\]
+Versus the alternative (at least one $\beta_i$ is non-zero)
+
+Really high values of $F$ correspond to really low p-values, validating in a sense an overall relationship between the response and predictors.
+
+
+# Transformations
+
+We can use various transformations on-the-fly, when the variables are entered into the regression model.
+
+***
+
+What transformation would you use on the gdp per capita variable to improve the model?
+
+***
