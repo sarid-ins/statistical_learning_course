@@ -103,11 +103,11 @@ Note the special treatment of categorial variables (i.e., `Continent`).
 
 The residual standard error, at the buttom of the table, reports an estimate for the $\epsilon$'s (error) standard deviation. While degrees of freedom signifies the sample size minus the number of coefficients, i.e.: $df=n-p-1$.
 
-### Multiple R^2 and Adjusted $R^2$
+### Multiple $R^2$ and Adjusted $R^2$
 
 These measure the fitness of the model. The $R^2$ is the proportion of our model to a nominal naive model (a simple average). The Adjusted $R^2$ uses a similar approach but "fines" the use of many features.
 
-### The F-Statistic
+### The F-Statistic (and hypothesis testing)
 
 The F-statistic is the ratio of:
 
@@ -132,6 +132,123 @@ We can use various transformations on-the-fly, when the variables are entered in
 
 ***
 
-What transformation would you use on the gdp per capita variable to improve the model?
+**What transformation would you try on the gdp per capita variable to improve the model?**
+
+```{r}
+head(alchohol, 15) %>% 
+  select(country:Continent_Name) %>% 
+  knitr::kable()
+```
 
 ***
+
+### Relative importance with `relaimpo`
+
+Each time we add a new variable to a model, our $R^2$ increases by a certain amount. However, the contribution of a new variable changes according to variables already in the model. For example:
+
+```{r rsquare demonstration}
+
+# just spirit
+summary(lm(beer_servings ~ spirit_servings, alchohol))$r.squared
+
+# just wine
+summary(lm(beer_servings ~ wine_servings, alchohol))$r.squared
+
+# spirit and wine
+summary(lm(beer_servings ~ spirit_servings + wine_servings, alchohol))$r.squared
+
+# adding continent
+summary(lm(beer_servings ~ spirit_servings + Continent_Name, alchohol))$r.squared
+summary(lm(beer_servings ~ wine_servings + Continent_Name, alchohol))$r.squared
+summary(lm(beer_servings ~ spirit_servings + wine_servings + Continent_Name, alchohol))$r.squared
+```
+
+In this case: 
+
+   * The contribution of wine added 0.23 to the $R^2$ (compared to a nominal model with just spirit)
+   * The contribution of spirit added 0.13 to the $R^2$ (compared to a nominal model with just wine)
+   * The contribution of continent ranges in 0.08-0.207, depending on when you add it.
+   
+The `relaimpo` package provides an analysis on all combinations (of the average $R^2$ increase).
+Note the use of `factor` to transform `Continent_Name` (otherwise the function fails).
+   
+```{r relaimpo example}
+#install.packages(relaimpo)
+
+relaimpo::calc.relimp(lm(beer_servings ~ spirit_servings + wine_servings + log(gdp2010) + factor(Continent_Name), alchohol))
+
+```
+
+Surprisingly, the continent is found to have the largest "lmg" (short for Lindeman, Merenda and Gold which wrote the original paper), which is the $R^2$ contribution averaged over orderings among regressors.
+
+### Feature selection
+
+There are a number of "greedy" feature selection algorithms, known as stepwise: forwards, backwards, forward-backward.
+Each algorithm starts from an initial model, define it as the "incumbent model". 
+
+At each iteration, the algorithm runs all `lm` combinations of adding (or removing or adding/removing) a single feature to the incumbent model.
+
+The algorithm selects the best model out of the examined models, using a criteria (e.g., AIC), and updates the "incumbent model".
+
+The algorithm stops when the incumbent model cannot be improved.
+
+In R, the function `MASS:stepAIC` can be used for stepwise. It utilizes the AIC (Akaike information criterion):
+
+\[
+AIC = -2\ln(\hat{L}) + 2k
+\]
+
+Where $\hat{L}$ is the likelihood and is defined as:
+
+\[
+\hat{L}(\theta) = f(y_1|\theta)\times\ldots\times f(y_n|\theta)=\Pi_{t=1}^nf(y_t|\theta)
+\]
+
+In the case of linear regression, the AIC is equivalent to $2k+n\ln(RSS)$.
+
+We illustrate the use of `stepAIC`.
+
+```{r stepwise}
+
+beer_step_bth <- MASS::stepAIC(beer_lm, direction = "both")
+beer_step_bck <- MASS::stepAIC(beer_lm, direction = "backward")
+
+base_mod <- lm(beer_servings ~ 1, data = alchohol)
+base_update <- update(base_mod, . ~ . -spirit_servings -wine_servings -gdp2010 -Continent_Name)
+beer_step_fwd <- MASS::stepAIC(base_update,
+                               scope = list(upper = ~ spirit_servings + wine_servings + gdp2010 + Continent_Name, 
+                                            lower ~ 1),
+  direction = "forward")
+
+```
+
+In this case, all three algorithms converge into the same model, with all variables except the gdp2010.
+
+```{r stepwise res}
+summary(beer_step_bth)
+```
+
+### How accurate is our prediction?
+
+The prediction can be provided using a prediction interval. The difference between a confidence interval and a prediction interval is that a confidence interval is constant and uniform for all $x$. A prediction interval is like a confidence interval but for a $x_0$, i.e., $f(x_0)\in[lb,ub]$.
+
+For example, here is the prediction interval of beer consumption for each of our observations.
+Note that this is a "dumb" prediction, which does not consider variable range (i.e., there are negative values for consumption).
+
+```{r prediction interval}
+alchohol %>% 
+  bind_cols(as_tibble(predict(beer_lm, 
+                              interval = "prediction",
+                              level = 0.95))) %>% 
+  select(country, beer_servings, fit, lwr, upr)
+```
+
+It is nice to illustrate in a model with just two variables:
+
+```{r prediction interval illustration}
+ggplot(alchohol, aes(y = beer_servings, x = log(gdp2010))) + 
+  geom_point() + 
+  stat_smooth(method = "lm", se = TRUE, level = 0.95)
+```
+
+Note the following clarification: the prediction interval is a confidence interval to what would your prediction be when you recreate the experiment, and not the interval in which 95% of the points will fall into.
