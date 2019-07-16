@@ -18,7 +18,7 @@ flights <- flights %>%
 # handling the problems with the methods we have shown in class (or otherwise closely related methods).
 
 # The exercise:
-# We would like to predict the **avg_price_per_passenger** as best we can, using any of the tools we have discussed so far.
+# We would like to predict the **order_total_spent** as best we can, using any of the tools we have discussed so far.
 # That is, you can use feature selection (e.g., stepwise), feature importance, transformation of variables anyway you like,
 # for example: factoring, log, sqrt, or any other which comes to mind.
 # preprocessing anyway you like, outlier removal, quantile regression, etc.
@@ -33,7 +33,7 @@ flights <- flights %>%
 
 # example 
 # model_accuracy(flights, 
-#                original_price = avg_price_per_passenger, 
+#                original_price = order_total_spent, 
 #                predicted_price = predicted_price)
 
 model_accuracy <- function(tbl, original_price, predicted_price){
@@ -45,15 +45,25 @@ model_accuracy <- function(tbl, original_price, predicted_price){
   
   tbl %>% 
     mutate(rmse = ({{original_price}} - {{predicted_price}})^2,
-           mape = abs({{original_price}} - {{predicted_price}})/{{original_price}}) %>% 
+           mape = abs({{original_price}} - {{predicted_price}})/{{original_price}},
+           mae = abs({{original_price}} - {{predicted_price}})) %>% 
     group_by(is_train) %>% 
     summarize(rmse = sqrt(mean(rmse)),
+              mae = mean(mae),
               mape = mean(mape)) %>% 
-    select(is_train, rmse, mape)
+    select(is_train, rmse, mape, mae)
 }
 
-flights_new <- flights %>% 
-  mutate(predicted_price = 100)
+# An example with a fairly simplistic linear model
+flights_lm <- lm(data = flights %>% filter(is_train),
+                 formula = order_total_spent ~ 
+                   local_created_hour + local_created_dow + num_of_passengers + 
+                   min_days_until_trip + avg_price_per_passenger + visit_length_hours + max_connection_cnt +
+                   is_roundtrip + domestic_trip + number_of_flights)
 
-flights_new %>% 
-  model_accuracy(avg_price_per_passenger, predicted_price)
+summary(flights_lm)
+
+flights %>% 
+  mutate(predicted_price = predict(flights_lm, newdata = flights)) %>% 
+  mutate(predicted_price = ifelse(is.na(predicted_price), 0, predicted_price)) %>% 
+  model_accuracy(order_total_spent, predicted_price)
