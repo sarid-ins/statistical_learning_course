@@ -252,3 +252,23 @@ ggplot(alchohol, aes(y = beer_servings, x = log(gdp2010))) +
 ```
 
 Note the following clarification: the prediction interval is a confidence interval to what would your prediction be when you recreate the experiment, and not the interval in which 95% of the points will fall into.
+
+### Interactions between variables
+
+Sometimes we want to examine the interactions between a number of variables, e.g., the influence of continent*gdp on the target variable beer consumption. In which case we add in the formula an interaction indicator, i.e.: `log(gdp2010):Continent_Name`.
+
+```{r interactions}
+
+lm_beer_interaction <- 
+  lm(beer_servings ~ spirit_servings + wine_servings + log(gdp2010) + Continent_Name + log(gdp2010):Continent_Name,
+     data = alchohol)
+
+summary(lm_beer_interaction)
+
+```
+
+***
+
+**In terms of the regression formula, a `log(gdp2010)*Contenent_NameAsia` has been added and is significant, but what is its influence (its meaning) on the target variable? can you explain what it does in terms of a new observation and the value it would predict to it?**
+
+***
