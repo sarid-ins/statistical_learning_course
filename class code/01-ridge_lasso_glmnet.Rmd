@@ -1,0 +1,111 @@
+---
+title: "Regularization with `glmnet`"
+author: "Adi Sarid"
+date: "July 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Read the dataset
+
+We're returning to our Alchohol consumption data set (for details about this data set see `01-linear_regression_example1.Rmd`).
+
+Lets see the simple linear regression model again, we're using `log(gdp2010)` which is a better predictor than `gdp2010`.
+
+```{r read alchohol data}
+alchohol <- read_csv("https://github.com/sarid-ins/statistical_learning_course/raw/master/datasets/alchohol_consumption/alchohol_consumption_ready.csv") %>% 
+  mutate(asia = ifelse(Continent_Name == "Asia", 1, 0),
+         europe = ifelse(Continent_Name == "Europe", 1, 0),
+         south_america = ifelse(Continent_Name == "South America", 1, 0),
+         north_america = ifelse(Continent_Name == "North America", 1, 0),
+         africa = ifelse(Continent_Name == "Africa", 1, 0)) %>% 
+  select(ends_with("servings"), gdp2010, asia:africa) %>% 
+  mutate(log_gdp2010 = log(gdp2010)) %>% 
+  select(-gdp2010)
+
+nominal_beer_lm <- lm(formula = beer_servings ~ .,
+                      data = alchohol)
+
+summary(nominal_beer_lm)
+
+```
+
+## The Lasso ($L_1$ regularization)
+
+Let's see what the Lasso provides compared to `lm`.
+
+```{r lasso}
+#install.packages("glmnet")
+suppressWarnings(suppressMessages(library(glmnet)))
+
+# test a few penalties
+lambda_vals <- 10^seq(3, -2, by = -.1) # <- needs to be in decreasing order for optimization
+# multiple values to be used in cross-validation
+
+# prep a matrix for glmnet
+x_mat <- alchohol %>% 
+  select(-beer_servings) %>% 
+  as.matrix()
+
+beer_lasso <- glmnet(x = x_mat, 
+                     y = alchohol$beer_servings,
+                     alpha = 1,
+                     lambda = lambda_vals)
+
+summary(beer_lasso)
+
+beer_lasso_cv <- cv.glmnet(
+  x = x_mat,
+  y = alchohol$beer_servings,
+  alpha = 1,
+  lambda = lambda_vals
+)
+
+plot(beer_lasso_cv)
+
+# the optimal lambda is here (brings mse to minimum)
+optimal_lambda <- beer_lasso_cv$lambda.min
+optimal_lambda
+```
+
+First, note that the optimal $\lambda$ according to the cross validation is $\lambda=3.16$. This $\lambda$ yields the minimal mean squared error, and yields a model with 5 coefficients (4 features, see the upper x-axis of the chart).
+
+```{r explore lasso statistics}
+
+# let's compute the predictions with the optimal lambda, in this case the 16th model in the series
+beer_lasso_pred <- predict(beer_lasso_cv$glmnet.fit, newx = x_mat)[,16]
+
+# we can also see the beta coefficients and compare some of the selected models. 
+# s15 is the optimal model in terms of mse:
+beer_lasso_cv$glmnet.fit$beta[, c(1, 14, 16, 20, 40, 51)]
+
+```
+
+## The Ridge ($L_2$ regularization)
+
+We use the same function to run a ridge regression. The only difference is in the $\alpha$ argument of the function.
+
+The $\alpha$ balances the rigde versus lasso, so $\alpha=1$ is lasso, $\alpha=0$ is ridge. Any other value is a mix between the two.
+
+```{r ridge}
+
+beer_ridge_cv <- cv.glmnet(
+  x = x_mat,
+  y = alchohol$beer_servings,
+  alpha = 0,
+  lambda = lambda_vals
+)
+
+plot(beer_ridge_cv)
+
+# the optimal lambda is here (brings mse to minimum)
+optimal_lambda <- beer_ridge_cv$lambda.min
+optimal_lambda
+
+```
+
+The optimal $\lambda$ in the ridge regression case is entirely different, $\lambda=15.85$. Note that for all $\lambda$ values in the ridge regression, all 8 coefficients appear.
