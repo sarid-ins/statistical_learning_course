@@ -1,0 +1,169 @@
+---
+title: "PCA"
+author: "Adi Sarid"
+date: "July 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Read the dataset
+
+We're returning to our Alchohol consumption data set (for details about this data set see `01-linear_regression_example1.Rmd`).
+
+```{r read alchohol data}
+alchohol <- read_csv("https://github.com/sarid-ins/statistical_learning_course/raw/master/datasets/alchohol_consumption/alchohol_consumption_ready.csv") %>% 
+  mutate(asia = ifelse(Continent_Name == "Asia", 1, 0),
+         europe = ifelse(Continent_Name == "Europe", 1, 0),
+         south_america = ifelse(Continent_Name == "South America", 1, 0),
+         north_america = ifelse(Continent_Name == "North America", 1, 0),
+         africa = ifelse(Continent_Name == "Africa", 1, 0))
+
+```
+
+## Are there any correlated variables?
+
+One would expect that beer, spirit, and perhaps wine are correlated. If it's indeed so - this indicates redundancy of some of the variables. Let's check if this is the case.
+
+```{r illustrate correlations}
+alchohol_cor <- alchohol %>% 
+  select_if(is.numeric) %>% 
+  cor()
+
+knitr::kable(alchohol_cor)
+
+#install.packages(ggcorrplot)
+ggcorrplot::ggcorrplot(alchohol_cor, method = "circle",
+                       lab = TRUE, hc.order = TRUE, lab_size = 2.5)
+
+```
+
+***
+
+The variable which is mostly correlated is the `total_litres_of_pure_alcohol` (with the beer, spirit, and wine servings). **Why is that?**
+
+Note that this is a variable we intentionally omitted from our previous linear regression analysis.
+
+***
+
+## Using PCA to reduce the number of features
+
+The combination of continent, wine, spirit, and dgp per capita has a lot of medium to high correlations. Can this fact be leveraged to reduce the number of variables we are using?
+
+We'll return to the beer example in a short while, but first let's explain about PCA.
+
+### What is PCA?
+
+PCA is an algebraic operation which decomposes $X^TX$ matrix (which is related to the *autocorrelation matrix*, $E[XX^T]$ of the data). It is an eigen-decomposition which helps us extract: 
+
+   * The *eigen vectors* which have a unique propertie, and
+   * The *eigen values* which represent each eigen vector's variance
+   
+We're not going to delve deep into the technicalities of the math, but what's important to understand is that: 
+
+   * This decomposition **stretches and rotates** the original variables
+   * The new variables are sorted in a decreasing order of variance
+   * Selecting the first $v$ components gives us the best description of the existing data, in terms of capturing the maximum variance of the original variables with a subset of $v$ vars.
+   
+Here is an example for what PCA does on a simple example.
+
+```{r prep data for pca example}
+set.seed(0)
+randomized_data <- tibble(a = rnorm(100, 0, 1)) %>% 
+  mutate(b = rnorm(100, 0, 1)) %>% 
+  mutate(c = a + b + rnorm(100, 0, 0.6))
+
+ggplot(randomized_data, aes(a, b)) + 
+  geom_point() + 
+  theme_bw()
+
+ggplot(randomized_data, aes(a, c)) + 
+  geom_point() + 
+  theme_bw()
+
+ggplot(randomized_data, aes(b, c)) + 
+  geom_point() + 
+  theme_bw()
+
+```
+
+Now, we'll run the PCA on the three variables and see what happens with the relationship of the new variables.
+
+```{r run simple pca example}
+
+pca_simple <- prcomp(randomized_data, center = TRUE, scale. = TRUE)
+
+pca_simple$rotation
+
+summary(pca_simple)
+
+```
+
+We see that the first component of the PCA explains 62.5% of the variance in the data. It is a linear combination of the original three variables, i.e.:
+
+\[v_1 = -0.5a-0.52b-0.68c\]
+
+The first two components of the PCA explain 97% of the variance in the data. The second component is given by:
+
+\[v_2 = 0.72a - 0.7b -0.003c\]
+
+We don't really need three variables to describe our matrix! two are enough. We can retrieve the new matrix from the PCA object using `pca_simple$x`.
+
+To perform the modification on a new data set, just use the `predict` function.
+
+the actual values can be anything... predict will do the pca linear transformation on them.
+
+```{r pca predict example}
+
+new_dataset <- tibble(a = 1:10, b = 2:11, c = 3:12) 
+
+predict(pca_simple, newdata = new_dataset)
+
+```
+
+### Back to the beer example
+
+We now illustrate how to perform the pca on the beer example.
+Note that I'm not including the variable which we are predicting on (the beer consumption).
+
+Important: 
+
+   1. PCA will work on numeric variables only, so we must prepare the data slightly better. 
+   2. PCA doesn't work with missing values.
+   3. If we don't scale the data, we'll get weird stuff (e.g. dgp2010 versus other variables).
+   
+```{r beer pca}
+
+alchohol_pca <- alchohol %>% 
+  select(spirit_servings, wine_servings, gdp2010, asia:africa) %>% 
+  prcomp(center = TRUE, scale. = T)
+
+summary(alchohol_pca)
+
+```
+
+To build a new model, we can do the following:
+
+```{r new model based on pca}
+
+new_alchohol_var <- predict(alchohol_pca, 
+        newdata = alchohol) %>% 
+  as.matrix() %>% 
+  as_tibble() %>% 
+  bind_cols(alchohol %>% select(beer_servings))
+
+beer_pca5_lm <- lm(formula = beer_servings ~ . - PC8 - PC7 - PC6,
+                   data = new_alchohol_var)
+
+```
+
+*** 
+
+**What happens when we run a linear model with the original 8 variables versus a linear model based on all 8 components?**
+
+[mentimeter](https://www.mentimeter.com/s/aa50b53604992e07d6f9fc6a91b8a7f5/402c59323ba7/edit)
+
+***
