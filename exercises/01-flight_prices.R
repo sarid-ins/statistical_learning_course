@@ -4,7 +4,7 @@
 
 # Read flight data ----
 library(tidyverse)
-flights <- readr::read_csv("datasets/local/flight_prices.csv")
+flights <- readr::read_csv("datasets/local/flight_prices.csv") # <- replace location with S3
 
 # glimpse
 glimpse(flights)
