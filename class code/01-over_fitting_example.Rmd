@@ -49,8 +49,8 @@ overfitting <- overfitting %>%
   mutate(res_no_overfit = y - predict(lm_no_overfit, newdata = overfitting),
          res_overfit = y - predict(lm_overfit, newdata = overfitting))
 overfitting %>%
-  summarize(error_overfit = mean(abs(res_no_overfit)),
-            error_no_overfit = mean(abs(res_overfit)))
+  summarize(error_overfit = mean(abs(res_overfit)),
+            error_no_overfit = mean(abs(res_no_overfit)))
 ```
 
 It looks as if the new model's fit is very good, using 95 variables reduced the error significantly. 
