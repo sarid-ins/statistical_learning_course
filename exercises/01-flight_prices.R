@@ -58,7 +58,7 @@ model_accuracy <- function(tbl, original_price, predicted_price){
 flights_lm <- lm(data = flights %>% filter(is_train),
                  formula = order_total_spent ~ 
                    local_created_hour + local_created_dow + num_of_passengers + 
-                   min_days_until_trip + avg_price_per_passenger + visit_length_hours + max_connection_cnt +
+                   min_days_until_trip + visit_length_hours + max_connection_cnt +
                    is_roundtrip + domestic_trip + number_of_flights)
 
 summary(flights_lm)
