@@ -1,0 +1,25 @@
+---
+title: "Classification methods"
+author: "Adi Sarid / adi@sarid-ins.co.il"
+date: "22 7 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressMessages(library(tidyverse))
+```
+
+## Classification Methods
+
+For some diversity, we are leaving the beer example in favour of another fun activity, watching movies.
+
+We're going to use data which was scraped from IMDB, by sundeepblue [source](https://github.com/sundeepblue/movie_rating_prediction).
+
+We're going to "force" the problem into a classification problem for identifying "successful movies", but from an investor's point of view, i.e., movies which earned at least 2.5 times their investment (`gross`/`budget`$\geq2.5$).
+
+```{r read the movie db data and arrange}
+movies_raw <- read_csv("https://raw.githubusercontent.com/sarid-ins/statistical_learning_course/master/datasets/scraped_imdb/movie_db_clean.csv") %>% 
+  mutate(earn_ratio = gross/budget) %>% 
+  mutate(success = earn_ratio >= 2.5)
+```
