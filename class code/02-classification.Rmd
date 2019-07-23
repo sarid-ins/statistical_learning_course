@@ -1,7 +1,7 @@
 ---
 title: "Classification methods"
 author: "Adi Sarid / adi@sarid-ins.co.il"
-date: "22 7 2019"
+date: "July 2019"
 output: html_document
 ---
 
@@ -10,16 +10,137 @@ knitr::opts_chunk$set(echo = TRUE)
 suppressMessages(library(tidyverse))
 ```
 
-## Classification Methods
+## The `glm` function
 
-For some diversity, we are leaving the beer example in favour of another fun activity, watching movies.
+Logistic regression is produced by using `glm` (though other functions such as `glmnet` can also be used). The g in `glm` stands for General (linear models), so in fact we can produce a lot of different models, depending on requirements (that should be determined by the assumed distribution of $Y$).
 
-We're going to use data which was scraped from IMDB, by sundeepblue [source](https://github.com/sundeepblue/movie_rating_prediction).
+### Families
 
-We're going to "force" the problem into a classification problem for identifying "successful movies", but from an investor's point of view, i.e., movies which earned at least 2.5 times their investment (`gross`/`budget`$\geq2.5$).
+Even though we are going to focus on logistic regression, I should mention that using the argument `family` of the function we can produce:
+
+   * Linear regression (`family=gaussian`)
+   * Logistic regression (`family=binomial`)
+
+And also additional families which are not in our scope:
+
+   * Poisson regression using `family=poisson`, aka "log-linear" ($\log(E(Y|x)) = \beta^tx$), poisson is used to model "count" data.
+   * Gamma, quasi, quasibinomial, quasipoisson, inverse.gaussian, see `help(family)`.
+  
+### Link functions  
+ 
+Another argument (of each of the individual families) is the `link` function (that's why the are called a family). For example, in logistic regression we are assuming that `link="logit"` (and that's the default).
+
+Alternatively, we can also use `"probit"` which correspond to $\Phi^{-1}(p)=\beta^tx$ and `cauchit` which corresponds to the Cauchy inverse CDF used. Each of these are in turn plugged-in the log-likelihood function for optimization and extraction of $\beta$. For further reading, see [this discussion](https://stats.stackexchange.com/questions/68596/model-fitting-when-errors-take-a-cauchy-distribution).
+
+Now we're almost ready for some coding, but before that, meet the data set which we will use...
+
+## The scraped IMDb dataset
+
+For some diversity, we are leaving the beer example which served us loyally in the previous session, in favour of another fun activity, watching movies.
+
+We're going to use data which was scraped from the [IMDb website](https://www.imdb.com/), by sundeepblue, [source here](https://github.com/sundeepblue/movie_rating_prediction).
+
+Our goal is to predict a movie's financial success, i.e., movies which earned at least 2.5 times their investment (`gross`/`budget`$\geq2.5$) are considered successful for the sake of our classification.
 
 ```{r read the movie db data and arrange}
-movies_raw <- read_csv("https://raw.githubusercontent.com/sarid-ins/statistical_learning_course/master/datasets/scraped_imdb/movie_db_clean.csv") %>% 
+movies_raw <- read_csv("https://raw.githubusercontent.com/sarid-ins/statistical_learning_course/master/datasets/scraped_imdb/movie_db_clean.csv", col_types = cols()) %>% 
   mutate(earn_ratio = gross/budget) %>% 
   mutate(success = earn_ratio >= 2.5)
+ 
+movies <- movies_raw %>% 
+  add_count(country, name = "country_count") %>% 
+  add_count(language, name = "language_count") %>% 
+  select(movie_title, title_year,
+         duration, aspect_ratio, country_count, language_count,
+         director_facebook_likes,
+         actor_1_facebook_likes, actor_2_facebook_likes, actor_3_facebook_likes,
+         Action:Western,
+         gross, budget, earn_ratio, success) %>% 
+  filter(!is.na(title_year))
+
+names(movies)
+
 ```
+
+## A logistic regression model
+
+Note how the code for generating the model is almost the same as the one we've used for linear regression. We are using the budget feature, even though we know that it is directly related to the `earn_ration` and to the formula we used to define success.
+
+```{r logistic regression example}
+
+glm_logistic <- glm(success ~ .,
+                    data = movies %>% 
+                      select(-movie_title, -gross, -earn_ratio),
+                    family = binomial(link = "logit"))
+
+summary(glm_logistic)
+
+# alternative method for logistic regression (+ option to add regulatization)
+# movies_for_glmnet <- movies %>% 
+#   select(-movie_title, -gross, -earn_ratio) %>% 
+#   na.omit()
+# 
+# movies_logistic <- glmnet::glmnet(x = movies_for_glmnet %>% select(-success) %>% as.matrix,
+#                                   y = movies_for_glmnet %>% select(success) %>% as.matrix,
+#                                   family = "binomial")
+
+```
+
+***
+
+**Why do we have NAs on `Game-Show`, `News`, `Reality-TV`, and `Short`?**
+
+***
+
+### Interpretation of `glm`'s summary table, in the logistic regression case
+
+The summary table looks similar to the linear regression summary table, but it has some fundemantal differences:
+
+   * The interpretation of the estimate $\beta$ is different. It is the *odds ratio* increase when $x_i$ increases (Odds ratio$=\frac{p}{1-p}$).
+   * Std. Error is computed entirely differently (more information can be obtained in [this discussion](https://www.researchgate.net/post/How_to_compute_the_standard_errors_of_binary_logistic_regressions_coefficients) and references therein).
+   * Instead of *Residuals*, we have *Deviance Residuals* ($D=-2\log(l)$). The deviance is $\geq0$ (a perfect model achieves deviance $0$).
+   * The null deviance is the naive model (in which $\beta_0=\bar{y}$).
+   * We get the AIC value ($-2\log(l)+2k$), instead of $R^2$.
+   * Deviance residuals are $-2\log(l(x_i))$ (of the individual elements which comprise the log-likelihood).
+
+### Extracting predictions
+
+We can extract the predictions using the function `predict` (a wrapper, so use `?predict.glm` for help).
+
+The `predict` function can provide a few types of results controlled by the `type` argument
+
+   * `type="link"` provides the log-odds (the linear combination in the exponent).
+   * `type="response"` provides the predicted probability ($Pr(Y=1|X=x)$).
+
+
+
+```{r using predict}
+
+movies_model <- movies %>% 
+  filter(!is.na(success)) %>% 
+  mutate(predicted = predict(glm_logistic, type = "response", newdata = .)) %>% 
+  filter(!is.na(predicted))
+
+compute_confusion <- function(tbl, real_pr, predicted_pr, threshold, show_prop = F){
+  tbl %>% 
+    mutate(predicted_class = {{predicted_pr}} >= threshold) %>% 
+    count({{real_pr}}, predicted_class) %>% 
+    select({{real_pr}}, predicted_class, n) %>% 
+    spread({{real_pr}}, n) %>% 
+    rename(`predicted\\true->` = predicted_class)
+
+}
+
+compute_confusion(movies_model, success, predicted, 0.5)
+
+```
+
+**TODO:ADD PROBABILITY in the confusion**.
+
+
+
+
+
+
+
+
