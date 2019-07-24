@@ -603,7 +603,7 @@ ggcorrplot::ggcorrplot(alchohol_cor, method = &quot;circle&quot;,
 <p>We’ll return to the beer example in a short while, but first let’s explain about PCA.</p>
 <div id="what-is-pca" class="section level3">
 <h3>What is PCA?</h3>
-<p>PCA is an algebraic operation which decomposes <span class="math inline">\(X^TX\)</span> matrix (which is related to the <em>autocorrelation matrix</em>, <span class="math inline">\(E[XX^T]\)</span> of the data). It is an eigen-decomposition which helps us extract:</p>
+<p>PCA is an algebraic operation which decomposes the <span class="math inline">\(X^TX\)</span> matrix. It is an eigen-decomposition which helps us extract:</p>
 <ul>
 <li>The <em>eigen vectors</em> which have a unique propertie, and</li>
 <li>The <em>eigen values</em> which represent each eigen vector’s variance</li>
@@ -702,7 +702,7 @@ beer_pca5_lm &lt;- lm(formula = beer_servings ~ . - PC8 - PC7 - PC6,
                    data = new_alchohol_var)</code></pre>
 <hr />
 <p><strong>What happens when we run a linear model with the original 8 variables versus a linear model based on all 8 components?</strong></p>
-<p><a href="https://www.mentimeter.com/s/aa50b53604992e07d6f9fc6a91b8a7f5/402c59323ba7/edit">meantimeter</a></p>
+<p><a href="https://www.mentimeter.com/s/aa50b53604992e07d6f9fc6a91b8a7f5/402c59323ba7/edit">mentimeter</a></p>
 <hr />
 </div>
 </div>

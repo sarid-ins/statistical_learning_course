@@ -57,7 +57,7 @@ We'll return to the beer example in a short while, but first let's explain about
 
 ### What is PCA?
 
-PCA is an algebraic operation which decomposes $X^TX$ matrix (which is related to the *autocorrelation matrix*, $E[XX^T]$ of the data). It is an eigen-decomposition which helps us extract: 
+PCA is an algebraic operation which decomposes the $X^TX$ matrix (equivalently also called sometimes a singular value decomposition SVD of $X$). It is an eigen-decomposition which helps us extract: 
 
    * The *eigen vectors* which have a unique propertie, and
    * The *eigen values* which represent each eigen vector's variance
