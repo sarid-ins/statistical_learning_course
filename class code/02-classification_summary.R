@@ -32,23 +32,29 @@ ggplot(dataset2, aes(x = x1, y = x2, color = classification)) +
 
 # More overlapping data ("less" separable), distribution is not normal ----
 # (Logistic regression)
+
+regressor_cls <- function(data){
+  data %>% 
+    mutate(prob = exp(0.3 + 0.2*x1 + 0.2*x2)/(1 + exp(0.3 + 0.2*x1 + 0.2*x2)))
+}
+
 set.seed(0)
+
 dataset3 <- tibble(x1 = rnorm(50, mean = 4, sd = 0.7),
-                   x2 = -3.4 + runif(50, min = -1, max = 1),
-                   classification = T) %>% 
+                   x2 = -3.4 + runif(50, min = -0.5, max = 0.5)) %>% 
   bind_rows(tibble(x1 = rnorm(50, mean = 4, sd = 0.7),
-                   x2 = -2.7 + runif(50, min = -1, max = 1),
-                   classification = T)) %>% 
+                   x2 = -2.7 + runif(50, min = -0.5, max = 0.5))) %>% 
   bind_rows(tibble(x1 = rnorm(100, mean = 4, sd = 0.3),
-                   x2 = rnorm(100, mean = -1.5, sd = 3),
-                   classification = F))
+                   x2 = rnorm(100, mean = -1.5, sd = 3))) %>% 
+  regressor_cls() %>% 
+  mutate(classification = prob >= 0.65-runif(200, 0, 0.1))
 
 ggplot(dataset3, aes(x = x1, y = x2, color = classification)) + 
   geom_point() + 
   theme_bw()
 
 
-# compare ROC of all methods in each of the data sets:
+# compare ROC of all methods in each of the data sets ----
 generate_roc <- function(dataset){
   glm_fit <- glm(formula = classification ~ .,
                   data = dataset)
@@ -93,4 +99,4 @@ generate_roc <- function(dataset){
 
 generate_roc(dataset1)
 generate_roc(dataset2)
-plotly::ggplotly(generate_roc(dataset3))
+generate_roc(dataset3)
