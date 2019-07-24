@@ -188,6 +188,8 @@ compute_confusion(movies_model, success, predicted, 0.3, T)
 
 ### Model evaluation using ROC and AUC
 
+**(or: why I trust strep-A DIY detection kits)**
+
 ROC, short for Receiver Operating Characteristic, is a plot which helps us compare classification models. It was develpoed in the second world war when the American army tried to compare methods for recognizing Japanese planes. 
 
 ROC shows the rate of detecting an event (sensitivity, detecting a success), versus the specificity (misclassifying a movie as a success).
@@ -197,5 +199,56 @@ In our confusion matrix terminology, that's a True Positive rate on the y-axis v
 Let's examine the following code and figure out together why it works:
 
 ```{r plotting roc}
+roc_chart <- movies_model %>% 
+  select(success, predicted) %>% 
+  arrange(desc(predicted)) %>% 
+  mutate(TPR=cumsum(success)/sum(success),
+         FPR=cumsum(!success)/sum(!success))
+
+ggplot(roc_chart, aes(x = FPR, y = TPR)) + 
+  geom_line() + 
+  ylab("TPR (sensitivity)") + 
+  xlab("FPR (1-specificity)") + 
+  theme_bw()
+```
+
+Each point in this line is actually derived by a specific threshold (i.e., has a confusion matrix of its own).
+
+***
+
+**What does the ROC of $y=x$ stand for?**
+**What happens when the ROC is completely under the $y=x$ line?**
+
+***
+
+The **AUC** or area under the curve is the area contained under the ROC. It is an evaluation method for the fit of a model (which does not require a selection of a specific threshold).
+
+I.e., we're computing
+
+```{r auc demonstration}
+ggplot(roc_chart %>% 
+         bind_rows(tibble(FPR = 1, TPR = 0)), 
+       aes(x = FPR, y = TPR)) + 
+  ylab("TPR (sensitivity)") + 
+  xlab("FPR (1-specificity)") + 
+  geom_polygon(fill = "lightblue") +
+  theme_bw()
+
+# an estimation for the integral (AUC) can be obtained by using:
+AUC <- roc_chart %>% 
+  mutate(ydx = (FPR - lag(FPR))*TPR) %>% 
+  slice(-1) %>% 
+  pull(ydx) %>% 
+  sum()
+
+AUC
 
 ```
+
+### Additional related methods we can adopt
+
+We can adopt a lot of the things we previously learned such as:
+
+   * Step-wise selection `MASS::stepAIC`.
+   * PCA before fitting the regression `prcomp`.
+   * Regularization, i.e., $\max\{\log(l)-\lambda\sum_{j=1}^p\left|\beta_j\right|\}$ via `glmnet` package.
