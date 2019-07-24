@@ -43,11 +43,11 @@ We're going to use data which was scraped from the [IMDb website](https://www.im
 Our goal is to predict a movie's financial success, i.e., movies which earned at least 2.5 times their investment (`gross`/`budget`$\geq2.5$) are considered successful for the sake of our classification.
 
 ```{r read the movie db data and arrange}
-movies_raw <- read_csv("https://raw.githubusercontent.com/sarid-ins/statistical_learning_course/master/datasets/scraped_imdb/movie_db_clean.csv", col_types = cols()) %>% 
-  mutate(earn_ratio = gross/budget) %>% 
-  mutate(success = earn_ratio >= 2.5)
+movies_raw <- read_csv("https://raw.githubusercontent.com/sarid-ins/statistical_learning_course/master/datasets/scraped_imdb/movie_db_clean.csv", col_types = cols())
  
 movies <- movies_raw %>% 
+  mutate(earn_ratio = gross/budget) %>% 
+  mutate(success = earn_ratio >= 2.5) %>% 
   add_count(country, name = "country_count") %>% 
   add_count(language, name = "language_count") %>% 
   select(movie_title, title_year,
@@ -122,25 +122,80 @@ movies_model <- movies %>%
   filter(!is.na(predicted))
 
 compute_confusion <- function(tbl, real_pr, predicted_pr, threshold, show_prop = F){
-  tbl %>% 
+  abs_tbl <- tbl %>% 
     mutate(predicted_class = {{predicted_pr}} >= threshold) %>% 
     count({{real_pr}}, predicted_class) %>% 
-    select({{real_pr}}, predicted_class, n) %>% 
-    spread({{real_pr}}, n) %>% 
-    rename(`predicted\\true->` = predicted_class)
-
+    select({{real_pr}}, predicted_class, n)
+  
+  if (show_prop) {
+    res_confuse <- abs_tbl %>% 
+      group_by({{real_pr}}) %>% 
+      mutate(prop = n/sum(n)) %>% 
+      select(-n) %>% 
+      spread({{real_pr}}, prop) %>% 
+      rename(`predicted|true->` = predicted_class)
+  } else {
+    res_confuse <- abs_tbl %>% 
+      spread({{real_pr}}, n) %>% 
+      rename(`predicted|actual->` = predicted_class)
+  }
+  
+  return(res_confuse)
+  
 }
 
 compute_confusion(movies_model, success, predicted, 0.5)
-
+compute_confusion(movies_model, success, predicted, 0.5, T)
 ```
 
-**TODO:ADD PROBABILITY in the confusion**.
+### Confusion matrix
+
+The confusion matrix is defined as follows:
+
+```
+|Predicted|True value->|FALSE|TRUE|
+|     FALSE            | TN  | FN |
+|     TRUE             | FP  | TP |
+```
+
+Where
+
+   * FP = False Positive = Type-I error
+   * FN = False Negative = Type-II error
+
+Or in other words:
+![error types](Type_IandType_II_errors.jpg)
+Source: [http://www.statisticssolutions.com/to-err-is-human-what-are-type-i-and-ii-errors/](http://www.statisticssolutions.com/to-err-is-human-what-are-type-i-and-ii-errors/)
 
 
+Note that there is some confusion in the confusion (matrix). For example:
+ISL uses rows for predicted and columns for true values (see page 145, Table 4.4), while ESL-II uses rows for true values and columns for predicted (see page 301, Table 9.1). This is confusing so always state your columns/rows clearly.
 
 
+***
 
+**Let's go to mentimeter for some "confusing fun":**
 
+   * What's going to happen when we decrease the threshold from 0.5 to 0.3?
 
+[quiz link](https://www.mentimeter.com/s/0d917d2f1935d9ff12e5bd01166035b3/cb459eff8ab9/edit?)
 
+```
+compute_confusion(movies_model, success, predicted, 0.3, T)
+```
+
+***
+
+### Model evaluation using ROC and AUC
+
+ROC, short for Receiver Operating Characteristic, is a plot which helps us compare classification models. It was develpoed in the second world war when the American army tried to compare methods for recognizing Japanese planes. 
+
+ROC shows the rate of detecting an event (sensitivity, detecting a success), versus the specificity (misclassifying a movie as a success).
+
+In our confusion matrix terminology, that's a True Positive rate on the y-axis versus False Positive rate on the x-axis.
+
+Let's examine the following code and figure out together why it works:
+
+```{r plotting roc}
+
+```
