@@ -1,0 +1,97 @@
+---
+title: "Classification methods"
+author: "Adi Sarid / adi@sarid-ins.co.il"
+date: "July 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressMessages(library(tidyverse))
+```
+
+## Discriminant analysis
+
+Let's checkout `lda` and `qda` on the same movies data set as earlier. Even though it is now natural to use more than one class (e.g., losing movies, break-even movies, and earning movies), for comparison, we are still using the ratio success criteria as before.
+
+```{r prep data}
+
+movies_raw <- read_csv("https://raw.githubusercontent.com/sarid-ins/statistical_learning_course/master/datasets/scraped_imdb/movie_db_clean.csv", col_types = cols())
+ 
+movies <- movies_raw %>% 
+  mutate(earn_ratio = gross/budget) %>% 
+  mutate(success = earn_ratio >= 2.5) %>% 
+  add_count(country, name = "country_count") %>% 
+  add_count(language, name = "language_count") %>% 
+  select(movie_title, title_year,
+         duration, aspect_ratio, country_count, language_count,
+         director_facebook_likes,
+         actor_1_facebook_likes, actor_2_facebook_likes, actor_3_facebook_likes,
+         Action:Western,
+         gross, budget, earn_ratio, success) %>% 
+  filter(!is.na(title_year))
+
+names(movies)
+
+```
+
+Run the logistic regression, LDA, and QDA fits.
+
+***
+
+**Observe the error we get in the LDA, why it's there, and how to fix it!**
+
+***
+
+```{r fit classification models}
+movies_cls <- movies %>% 
+  select(-movie_title, -gross, -earn_ratio) %>% 
+  na.omit()
+
+glm_fit <- glm(success ~ .,
+               data = movies_cls,
+               family = binomial(link = "logit"))
+
+# First, observe this error!
+# lda_fit <- MASS::lda(success ~ .,
+#                      data = movies_cls)
+
+# LDA, working
+lda_fit <- MASS::lda(success ~ .,
+                     data = movies_cls %>% select(-21, -27, -28, -31))
+summary(lda_fit)
+
+# QDA, I omitted a lot of the variables to "make it work" (due to problems inverting matrices)
+qda_fit <- MASS::qda(success ~ .,
+                     data = movies_cls %>% select(1:12, 30, 36:37))
+```
+
+We now prepare all these models to put in a nice ROC for comparison.
+
+```{r compare ROC of the models}
+roc_charts <- movies_cls %>% 
+  mutate(glm_pred = predict(glm_fit, type = "response"),
+         lda_pred = predict(lda_fit)$posterior[,2],
+         qda_pred = predict(qda_fit)$posterior[,2]) %>% 
+  arrange(desc(glm_pred)) %>% 
+  mutate(TPR_glm=cumsum(success)/sum(success),
+         FPR_glm=cumsum(!success)/sum(!success)) %>% 
+  arrange(desc(lda_pred)) %>% 
+  mutate(TPR_lda=cumsum(success)/sum(success),
+         FPR_lda=cumsum(!success)/sum(!success)) %>% 
+  arrange(desc(qda_pred)) %>% 
+  mutate(TPR_qda=cumsum(success)/sum(success),
+         FPR_qda=cumsum(!success)/sum(!success)) %>% 
+  mutate(movie_id = seq_along(title_year)) %>% 
+  select(starts_with("TPR"), starts_with("FPR"), movie_id) %>% 
+  gather(type_axis_method, value, -movie_id) %>% 
+  separate(type_axis_method, into = c("axis", "method"), sep = "_") %>% 
+  spread(axis, value)
+
+ggplot(roc_charts, aes(x = FPR, y = TPR, color = method)) + 
+  geom_line() + 
+  theme_bw()
+
+```
+
+Unsurprisingly, logistic regression outperforms the LDA/QDA methods, perhaps due to the fact that a lot of the variables do not actually distrubute how the LDA/QDA methods assume.
