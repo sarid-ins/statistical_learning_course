@@ -7,8 +7,7 @@
 # Each of the files contains transactional data of fraud an of approved deals (50k+50k)
 # Our goal is to maximize the AUC using one of the models we talked about in the last lesson.
 
-# You shouldn't use the model_score and the mm_risk_score variables which are model outcome of Riskified's existing models.
-# The classification to fraud/legit was performed via these scores.
+# You shouldn't use the model_score variable which is an outcome of Riskified's existing models.
 
 library(tidyverse)
 
