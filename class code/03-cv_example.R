@@ -1,7 +1,7 @@
 # Live coding example for cross validation for tunning hyper-parameters
 
 library(tidyverse)
-library(e1701)
+library(e1071)
 
 # We're going to do this example manually for educational purposes,
 # But note that there are functions which can do this for you.
@@ -127,12 +127,63 @@ ggplot(error_results %>%
 
 
 # These two were not very beneficial, as there is no monotonicity that can be identified.
+# Here is an example for a k-fold cv on a regression problem, to determine the penalty lambda of a lasso regression
 
-
+library(glmnet)
 set.seed(0)
-pb <- progress_estimated(n = 10*length(cost_cv))
-error_results_cost <- crossing(iter = 1:10, cost = cost_cv) %>% 
-  mutate(error_rates = map_dbl(iter, ~{
+test_lambda <- 10^(seq(-3, 4, by = 0.5))
+pb <- progress_estimated(n = 10*length(test_lambda))
+
+error_results_cost_boston <- crossing(iter = 1:10, lambda = test_lambda) %>% 
+  mutate(error_rates = map_dbl(lambda, ~{
     pb$tick()$print()
-    split_build_err(iris, k=10, class = Species, cost = cost)
+    
+    build_set <- MASS::Boston %>% 
+      sample_n(size = NROW(MASS::Boston)*(1-1/k))
+    validate_set <- MASS::Boston %>% 
+      setdiff(build_set)
+    
+    glmnet_model <- glmnet(x = as.matrix(build_set %>% 
+                                           select(-medv)),
+                           y = as.matrix(build_set %>% select(medv)),
+                           alpha = 1,
+                           lambda = .)
+    
+    validate_set %>% 
+      mutate(pred = as.numeric(predict(glmnet_model, newx = as.matrix(validate_set %>% select(-medv))))) %>% 
+      mutate(rss = (pred-medv)^2) %>% 
+      summarize(mse = mean(rss)) %>% 
+      pull(mse) # this is what the function will return (the error rate)
+    
   }))
+
+error_results_cost_boston %>% 
+  group_by(lambda) %>% 
+  summarize(mean_err = mean(error_rates)) %>% 
+  ggplot(aes(y = mean_err, x = lambda)) + 
+  geom_smooth() + 
+  geom_line() + 
+  geom_point() +
+  ylab("MSE") + 
+  xlab("Lambda") +
+  scale_x_log10() + 
+  theme_bw()
+
+error_results_cost_boston %>% 
+  mutate(lambda = fct_inorder(as.character(round(log(lambda), 2)))) %>% 
+  ggplot(aes(y = error_rates, x = lambda)) + 
+  geom_boxplot() +
+  ylab("MSE") + 
+  xlab("Lambda") +
+  theme_bw()
+
+
+# As I said, this was for educational purposes, in most cases, the function will also provide a cv interface,
+# as we've already seen in glmnet
+# The implementation of build-in cv functions has potencial of being much quicker than something you build manually
+
+boston_prices_cv <- cv.glmnet(MASS::Boston %>% select(-medv) %>% as.matrix(),
+                              MASS::Boston %>% select(medv) %>% as.matrix(),
+                              lambda = test_lambda,
+                              alpha = 1)
+plot(boston_prices_cv)
