@@ -1,0 +1,319 @@
+---
+title: "Trees and (random)Forests"
+author: "Adi Sarid / adi@sarid-ins.co.il"
+output: html_document
+---
+
+In this chapter we discuss two methods for prediction and regression: trees and random forests.
+
+The general idea of trees is to split the variable space, each time by a different variable, until reaching a "leaf" - an area small enough such that "most" of the observations in it belong to the same class (or with a small variance).
+
+Trees are visually appealing, but they tend to be lousy predictors, hence, a common generalization is a random forest, which generates many trees and then averages them.
+
+```{r fitting a tree to the diamonds data, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+
+ggplot(diamonds, aes(y = price, x = carat)) + 
+  facet_wrap(~ clarity) + 
+  stat_smooth(method = "lm")
+
+library(rpart)
+
+diamond_price_tree <- rpart(formula = price ~ ., 
+                            data = diamonds)
+
+library(rpart.plot)
+prp(diamond_price_tree)
+diamond_price_tree
+summary(diamond_price_tree)
+```
+
+As the tree becomes "depper" we're prone to more overfitting errors. Here is an example for a very deep tree (which is probably not very effective).
+
+```{r varying the complexity parameter}
+diamond_price_tree_large <- rpart(formula = price ~ ., 
+                                  data = diamonds,
+                                  control = rpart.control(cp = 0.0005, xval = 10))
+prp(diamond_price_tree_large)
+#summary(diamond_price_tree_large)
+
+```
+
+A complexity parameter controls the tree's depth. When the paramter is low, the algorithm tends to perform more splits (the CP acts as a split threshold).
+
+To get back to a smaller tree, we can prune the tree, similar to what we did in a step-wise selection algorithm in regression.
+
+How do the algorithms work?
+
+## Growing and prunning trees
+
+The algorithms divide the space of observations into "hyper-planes" (half-spaces) each time, and predicting the target variable according to the resulting division, minimizing:
+
+\[\sum_{j=1}^J\sum_{i\in R_j}\left(y_i-\hat{y}_{R_j}\right)^2\]
+
+Where $j$ is the number of half-spaces dividing the feature space $X$.
+
+At each step of the algorithm the "best split" is examined, looking for the feature and cutpoint which minimizes:
+
+\[\sum_{i: x_i\in R_1(j,s)}\left(y_i-\hat{y}_{R_1}\right)^2 + \sum_{i: x_i\in R_2(j,s)}\left(y_i-\hat{y}_{R_2}\right)^2\]
+
+Where:
+
+\[R_1(j,s) = \left\{X|X_j<s\right\} \text{ and } R_2(j,s) = \left\{X|X_j\geq s\right\}\]
+
+This is what's called a greedy algorithm (at each step looking for current best cutpoint).
+
+### Prunning
+
+To prune a tree we can use `prune`.
+
+```{r pruning a tree}
+
+diamond_price_pruned <- prune(diamond_price_tree_large, cp = 0.05)
+
+prp(diamond_price_pruned)
+
+```
+
+## Using cross-validation to choose the complexity parameter
+
+To choose CP, one can use cross-validation, what cross validation does is:
+
+   * Chooses a CP
+   * SPlit the original data to $k$ data sets (k-fold cross validation, $k=10$ is a common choice).
+   * For $\frac{k-1}{k}$ of the data fit a tree using the chosen CP.
+   * You get $k$ errors, in other words for each CP we get a distribution of errors.
+   * Repeat the process for various values of CP.
+
+The `rpart` algorithm actually does all this for us:
+
+```{r example for xvalidation}
+
+# here is the cp table
+diamond_price_tree_large$cptable
+
+# the shortest way - use a predefined function to plot the xval cp errors
+rpart::plotcp(diamond_price_tree_large)
+
+```
+
+In this case our sample is very large so the x-validation error is monotone decreasing (as the CP **decreases**) usually that is not the case.
+
+So far we discussed regression trees, but what happens when we want to use classification?
+
+To measure the error we use the Gini impurity (instead of RSS):
+
+\[G = \sum_{k=1}^K\hat{p}_{mk}(1-\hat{p}_{mk})\]
+
+Where $\hat{p}_{mk}$ is the proportion of observations in the $m$ half space which has a $k$ classification. The measure is lower as $\hat{p}_{mk}$ is more extreme (closer to 0 or to 1).
+
+```{r plot p time 1-p}
+
+ggplot(tibble(p = seq(0, 1, 0.01)), aes(x = p, y = p*(1-p))) + 
+  geom_line() + 
+  ylab("G = p*(1-p)") +
+  ggtitle("Illustration: Gini impurity will be minimized when p=1 or p=0")
+
+```
+
+
+Some algorithms use entropy instead:
+
+\[D = -\sum_{k=1}^K{\hat{p}_{mk}\log\hat{p}_{mk}}\]
+
+
+### Exercise
+
+In this exercise we will use decision trees to predict the probability for churn.
+
+   1. Read the file WA_Fn-UseC_-Telco-Customer-Churn.csv.
+   2. Build a decision tree to predict churn using a high CP and another tree using a lower CP. 
+   3. Plot the two trees, can you deduce any insights?
+   4. Show the cross validation error as a functino of CP. What CP would you choose?
+   5. Split the data to train/test and use the CP you got to fit a tree. Plot an ROC based on the train data and the tree you got. 
+   6. Fit a logistic regression model to predict churn and compare it to the tree you got (plot both of them on the ROC). Which model has a better performance?
+
+```
+
+# q1
+telco_churn <- read_csv("https://github.com/adisarid/Riskified_training/raw/master/datasets/WA_Fn-UseC_-Telco-Customer-Churn.csv") %>%
+  select(-customerID)
+
+# q2
+telco_churn_tree <- rpart(data = telco_churn,
+                          formula = Churn ~ .,
+                          control = rpart.control(cp = XXX))
+# q2+q3
+library(rpart.plot)
+prp(telco_churn_tree)
+telco_churn_short <- prune(telco_churn_tree, cp = XXX)
+prp(telco_churn_short)
+
+# q4
+printcp(telco_churn_tree)
+plotcp(telco_churn_tree)
+
+# q5
+telco_churn <- telco_churn %>%
+  mutate(is_train = runif(nrow(telco_churn)) < 0.8)
+
+telco_churn_tree_train <- rpart(data = telco_churn %>% filter(is_train),
+                                formula = Churn ~ . - is_train,
+                                control = rpart.control(cp = XXX))
+
+telco_churn_deeptree_train <- rpart(data = telco_churn %>% filter(is_train),
+                                formula = Churn ~ . - is_train,
+                                control = rpart.control(cp = XXX))
+
+# Competitive model using logistic regression
+telco_churn_glm_train <- glm(formula = (Churn=="Yes") ~ . - is_train,
+                             family = binomial,
+                             data = telco_churn %>% filter(is_train))
+
+telco_churn_roc <- telco_churn %>%
+  mutate(probability_churn_tree = predict(telco_churn_tree_train, newdata = telco_churn)[, "Yes"]) %>%
+  arrange(desc(XXX)) %>%
+  filter(!is_train) %>%
+  mutate(churn_numeric = Churn == "Yes") %>%
+  mutate(tpr=XXX,
+         fpr=XXX) %>%
+  mutate(model = "tree_cp0.01")
+
+telco_churn_roc_deep <- telco_churn %>%
+  mutate(probability_churn_deeptree = 
+           predict(telco_churn_deeptree_train, newdata = telco_churn)[, "Yes"]) %>%
+  filter(!is_train) %>%
+  mutate(churn_numeric = Churn == "Yes") %>%
+  arrange(desc(probability_churn_deeptree)) %>%
+  mutate(tpr=cumsum(churn_numeric)/sum(churn_numeric),
+         fpr=cumsum(!churn_numeric)/sum(!churn_numeric)) %>%
+  mutate(model = "tree_cp0.000001")
+
+telco_churn_roc_glm <- telco_churn %>%
+  mutate(probability_churn_glm = 
+           predict(telco_churn_glm_train, newdata = telco_churn, type = "response")) %>%
+  mutate(churn_numeric = Churn == "Yes") %>%
+  filter(!is_train) %>%
+  arrange(desc(probability_churn_glm)) %>%
+  mutate(tpr=cumsum(churn_numeric)/sum(churn_numeric),
+         fpr=cumsum(!churn_numeric)/sum(!churn_numeric)) %>%
+  mutate(model = "logistic regression")
+
+roc_prep <- telco_churn_roc %>%
+  bind_rows(telco_churn_roc_deep,
+            telco_churn_roc_glm)
+  
+
+ggplot(roc_prep, aes(x = XXX, y = XXX, color = model)) + 
+  geom_line() + 
+  xlab("False positive rate (1 - Specificity)") + 
+  ylab("True positive rate (Sensitivity)") + 
+  scale_x_continuous(labels = scales::percent) + 
+  scale_y_continuous(labels = scales::percent) +
+  ggtitle("An ROC for our churn decision tree model") +
+  geom_abline(intercept = 0, slope = 1)
+
+
+```
+   
+### Some notes on trees
+
+   * Decision trees are "easier" to explain, thanks to their visual nature.
+   * They can express complex relationships ("if-then") that regression cannot represent in a strait-forward manner.
+   * Missing values and factor variables are easily handled.
+   
+But
+
+   * As a prediction model, they are not that good.
+   * They are not robust - small changes in the data can lead to an entirely different tree.
+   
+Many algorithms build upon decision trees. These algorithms are more robust and usually outperform trees:
+
+   * randomForests
+   * Bagging
+   * Boosting
+
+
+## randomForests
+
+The random forest algorithm builds an assortment of many trees, but at each split, the number of splitting variables from which the tree building algorithm chooses is limited to $m$ out of possible $p$ (usually $m\approx \sqrt{p}$).
+
+In addition, the algorithm excludes observations at random for the tree building process.
+
+This method can minimize the effects of local minimum caused by the greedy approach of tree building.
+
+The eventual outcome is the prediction average over all trees.
+
+In addition, we can also compute the average contibution of each variable (the decrease in Gini's impurity, that each new variable brings).
+
+```{r diamond random forest}
+
+library(randomForest)
+
+# note the use of maxnodes, otherwise the trees are grown to maximal size
+# also limiting the number of trees to 150 - the default is 500...
+diamond_price_forest <- randomForest(
+  formula = price ~ .,
+  data = diamonds,
+  maxnodes = 15,
+  ntree = 150)
+
+# plot the importance plot
+varImpPlot(diamond_price_forest)
+
+# show an example of the first tree
+getTree(diamond_price_forest, k = 1)
+
+
+```
+
+### Exercise
+
+   1. Build a random forest for the Telco churn data. Remember to use a train/test split.
+   2. Compute the type-I and type-II error.
+   3. Add the results as another ROC line (to the chart you generated in the previous exercise).
+      a. Note that when you use the function `predict` you must define the parameter `type` in a specific way. How?
+   4. Build an importance plot using `varImpPlot`. What parameters are most important to predict churn?
+   5. Would you consider giving a discount to reduce churn? What % of monthlyCharges would you consider as a discount (if any)?
+
+```
+# some help: 
+# first if you try to replicate the code from the diamond's example, you will get an error.
+# this is because randomForest expects no character variables, just numeric and factors.
+# So how can we turn everything character into factor?
+# Intuitively, you would probably do:
+
+# telco_churn <- telco_churn %>%
+#    mutate(gender = as.factor(gender),
+#           SeniorCitizen = as.factor(SeniorCitizen),
+#           ...)
+
+# but this is like doing the same action over and over again.
+# wouldn't it be nice to just loop over everything, and if a column is of the wrong type (character)
+# just convert it into factor?
+# mutate_if() does exactly that.
+# it needs a condition called .predicate, and a vector function to operate called .funs. 
+# It goes like this:
+
+telco_churn <- telco_churn %>%
+   mutate_if(.predicate = funs(typeof(.)=="character"), 
+             .funs = funs(as.factor(.)))
+
+# What does it do?
+# it's like looping
+# for (i in 1:NCOL(telco_churn)){
+#    if (typeof(telco_churn[,i]) == "character") {
+#       telco_churn[,i] <- as.factor(telco_churn[,i])
+#    }
+# }
+
+# the syntax of 
+# typeof(.) == "character"
+# is like "replace . with the vector you are currently checking"
+# the syntax of as.factor(.) is like
+# "replace . with the vector" that is a character and you need to type case into a factor
+# the funs() function makes the expression explicit after replacing the . with the current vector
+
+# now you can continue the exercise...
+```
