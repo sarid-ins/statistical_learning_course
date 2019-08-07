@@ -132,6 +132,8 @@ error_results_degree <- crossing(iter = 1:10, degree = degree_cv) %>%
     split_build_err(k=10, degree = degree, kernel = "polynomial")
   }))
 
+error_results_degree <- read_csv("class code/03-svm-cv-degree-results.csv")
+
 ggplot(error_results_degree, 
        aes(y = error_rates, group = degree)) + 
   geom_boxplot()
