@@ -96,8 +96,8 @@ error_results <- read_csv("class code/03-svm-cv-results.csv")
 ggplot(error_results %>% 
          arrange(cost) %>% 
          filter(!is.na(cost)) %>% 
-         mutate(cost = fct_inorder(as.character(cost))), 
-       aes(y = error_rates, group = cost)) + 
+         mutate(cost = fct_inorder(as.character(round(cost, 2)))), 
+       aes(y = error_rates, x = cost)) + 
   geom_boxplot()
 
 # Indicates a small advantage to gamma around 100
@@ -109,13 +109,26 @@ ggplot(error_results %>%
   geom_boxplot()
 
 # As a line
+ggplot(error_results %>%
+         filter(cost <= 10) %>% 
+         group_by(cost) %>% 
+         summarize(mean_err = mean(error_rates)), 
+       aes(y = mean_err, x = cost)) + 
+  geom_point() + 
+  geom_line() +
+  scale_x_log10() + 
+  theme_bw() +
+  ggtitle("Quiz question - Error as a function of svm penalty cost")
+
 ggplot(error_results %>% 
          group_by(cost) %>% 
          summarize(mean_err = mean(error_rates)), 
        aes(y = mean_err, x = cost)) + 
   geom_point() + 
   geom_line() +
-  scale_x_log10()
+  scale_x_log10() + 
+  theme_bw() +
+  ggtitle("Quiz question - Error as a function of svm penalty cost (2)")
 
 ggplot(error_results %>% 
          group_by(gamma) %>% 
@@ -123,7 +136,8 @@ ggplot(error_results %>%
        aes(y = mean_err, x = gamma)) + 
   geom_point() + 
   geom_line() +
-  scale_x_log10()
+  scale_x_log10() + 
+  theme_bw()
 
 
 # These two were not very beneficial, as there is no monotonicity that can be identified.
