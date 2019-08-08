@@ -39,7 +39,8 @@ basic_glm <- glm(formula = is_fraud ~ .,
                  data = trans_for_model %>% 
                    select(-order_id, -model_score) %>% 
                    filter(is_train) %>% 
-                   select(-is_train))
+                   select(-is_train),
+                 family = binomial)
 
 transactions_predicted <- trans_for_model %>% 
   mutate(glm_predict = predict(basic_glm, newdata = .))
