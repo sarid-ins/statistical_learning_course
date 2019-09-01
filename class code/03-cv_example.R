@@ -73,26 +73,25 @@ split_build_err(movies_cls, k=10, class = success, kernel = "polynomial", degree
 set.seed(0)
 pb <- progress_estimated(n = 10*length(cost_cv))
 error_results_cost <- crossing(iter = 1:10, cost = cost_cv) %>% 
-  mutate(error_rates = map_dbl(iter, ~{
+  mutate(error_rates = map_dbl(cost, ~{
     pb$tick()$print()
-    split_build_err(movies_cls, k=10, class = success, cost = cost)
+    split_build_err(movies_cls, k=10, class = success, cost = .x)
     }))
 
 pb <- progress_estimated(n = 10*length(gamma_cv))
 error_results_gamma <- crossing(iter = 1:10, gamma = gamma_cv) %>% 
-  mutate(error_rates = map_dbl(iter, ~{
+  mutate(error_rates = map_dbl(gamma, ~{
     pb$tick()$print()
-    split_build_err(movies_cls, k=10, class = success, gamma = gamma)
+    split_build_err(movies_cls, k=10, class = success, gamma = .x)
   }))
 
 error_results <- bind_rows(error_results_cost,
                            error_results_gamma)
 
 # This takes ~16 minutes to complete, so I prepared the results in advance
-#write_csv(error_results, "class code/03-svm-cv-results.csv")
+write_csv(error_results, "class code/03-svm-cv-results.csv")
 error_results <- read_csv("class code/03-svm-cv-results.csv")
 
-# Not much of a discerning difference
 ggplot(error_results %>% 
          arrange(cost) %>% 
          filter(!is.na(cost)) %>% 
@@ -100,7 +99,6 @@ ggplot(error_results %>%
        aes(y = error_rates, x = cost)) + 
   geom_boxplot()
 
-# Indicates a small advantage to gamma around 100
 ggplot(error_results %>% 
          arrange(gamma) %>% 
          filter(!is.na(gamma)) %>% 

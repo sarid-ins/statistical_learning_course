@@ -37,3 +37,5 @@ rsconnect/
 
 # Local datasets not for upload
 datasets/local/
+
+textbooks/
