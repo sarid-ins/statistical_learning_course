@@ -137,7 +137,7 @@ In this exercise we will use decision trees to predict the probability for churn
 ```
 
 # q1
-telco_churn <- read_csv("https://github.com/adisarid/Riskified_training/raw/master/datasets/WA_Fn-UseC_-Telco-Customer-Churn.csv") %>%
+telco_churn <- read_csv("https://raw.githubusercontent.com/adisarid/intro_to_data_science_R/master/datasets/WA_Fn-UseC_-Telco-Customer-Churn.csv") %>%
   select(-customerID)
 
 # q2
