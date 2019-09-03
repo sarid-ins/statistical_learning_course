@@ -1,4 +1,4 @@
-# Usage of bootstrap - example for computing the distribution of a median
+# Usage of bootstrap - examples
 
 library(tidyverse)
 library(rsample)
