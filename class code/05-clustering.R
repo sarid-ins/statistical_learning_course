@@ -13,16 +13,17 @@ download_stats <- cranlogs::cran_downloads(packages = clustering_packages$packag
   group_by(package) %>% 
   summarize(total_downloads = sum(count))
 
-download_stats %>% 
-  top_n(10) %>% 
-  arrange(desc(total_downloads))
-
-# fpc is the most "popular" clustering package (e1071 is the svm package which also contains some clustering functions).
-# We will use fpc to demonstrate kmeans.
-
-
+# We will be demonstrating cluster::pam, hclust, dendextend for comparing hclust results, and NbClust for selecting k.
 
 # Cluster movies according to genre ---------------------------------------
 
 
+
 # Cluster countries according to alchohol consumption ---------------------
+
+
+
+# using: ------------------------------------------------------------------
+
+# https://www.datanovia.com/en/lessons/determining-the-optimal-number-of-clusters-3-must-know-methods/
+# https://cran.r-project.org/web/packages/dendextend/vignettes/introduction.html
