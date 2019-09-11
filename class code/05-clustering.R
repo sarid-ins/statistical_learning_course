@@ -57,14 +57,24 @@ movie_clustered %>%
   gather(genre, value, -cluster) %>% 
   group_by(cluster, genre) %>% 
   summarize(mean = mean(value)) %>% 
-  ungroup() %>% 
-  filter(mean >= 0.2) %>% 
+  filter(mean >= 0.1) %>% 
   ggplot(aes(y = mean, x = genre, fill = genre)) + 
-  geom_col() +
+  geom_col(color = "black") +
   facet_grid(rows = ~cluster) + 
   theme_bw() + 
-  coord_flip()
+  coord_flip() + 
+  ggtitle("Clustering movie types", subtitle = "Occurrence < 10% removed")
 
+# show 10 movies per cluster:
+movie_clustered %>% 
+  left_join(movies_raw %>% select(movie_title, num_voted_users)) %>% 
+  distinct(movie_title, .keep_all = T) %>% 
+  arrange(desc(num_voted_users)) %>% 
+  group_by(cluster) %>% 
+  top_n(10, wt = num_voted_users) %>% 
+  select(movie_title, cluster, everything()) %>% 
+  arrange(cluster) %>% 
+  View
 
 # Investigate the optimal k using "elbow", silhouette, and the gap --------
 set.seed(0)
