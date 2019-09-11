@@ -13,6 +13,14 @@
 # In your presentation, you must describe your clusters in a resonable way. 
 # (verbally, and in a manner that makes sense to managers).
 
+# In your answers, please relate to the following topics:
+# 1. What feature engineering did you do? how did you decide?
+# 2. What distance function(s) did you use? why?
+# 3. If you used a link function, what kind and why?
+# 4. How did you determine the number of clusters, k? Did you examine the sensitivity to your choice?
+# 5. What algorithms did you use? in what packages? how did you choose them?
+# 6. Find proper ways to visualize your methodolgy and your results. Explain them.
+
 
 # Read flight data ----
 library(tidyverse)
