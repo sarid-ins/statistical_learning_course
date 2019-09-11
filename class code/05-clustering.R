@@ -103,20 +103,49 @@ silhouette_movies <- readRDS("rds_files/silhouette_movies.rds")
 
 # Gap statistic
 set.seed(0)
-gap_stat_movies <- fviz_nbclust(x = select(movies, -movie_title),
-                                cluster::pam, method = "gap_stat",
-                                diss = movie_dist,
-                                k.max = 8, nboot = 100,
-                                verbose = TRUE) +
-  labs(subtitle = "Gap statistic method")
-saveRDS(gap_stat_movies, "rds_files/gap_stat_movies.rds")
+# gap_stat_movies <- fviz_nbclust(x = select(movies, -movie_title),
+#                                 cluster::pam, method = "gap_stat",
+#                                 diss = movie_dist,
+#                                 k.max = 8, nboot = 100,
+#                                 verbose = TRUE) +
+#   labs(subtitle = "Gap statistic method")
+# saveRDS(gap_stat_movies, "rds_files/gap_stat_movies.rds")
+gap_stat_movies <- readRDS("rds_files/gap_stat_movies.rds")
 
 
 # Hierarchical clustering for movies --------------------------------------
 
+hclust_movies <- hclust(movie_dist, method = "average")
+
+library(dendextend)
+
+as.dendrogram(hclust_movies) %>% 
+  set("labels", "") %>% 
+  set("branches_k_color", k = 5) %>% 
+  plot(main = "Clustering movies\naverage link function with k=5, binary distance")
+
+movies_hclust_res <- movie_clustered %>% 
+  mutate(hcluster = cutree(hclust_movies, k = 7))
+
+clustering_comparison <- movies_hclust_res %>% 
+  count(cluster, hcluster) %>% 
+  arrange(desc(n))
+
+#install.packages("ggalluvial")
+library(ggalluvial)
+
+ggplot(clustering_comparison, aes(y = n, axis1 = cluster, axis2 = hcluster)) + 
+  geom_alluvium(aes(fill = factor(cluster))) + 
+  geom_stratum(fill = "lightblue", width = 1/12) + 
+  scale_x_discrete(limits = c("cluster::pam", "stats::hclust")) + 
+  ggtitle("Comparison between clustering methods") + 
+  theme_bw() + 
+  guides(fill = guide_legend("cluster::pam"))
 
 
-# using: ------------------------------------------------------------------
+
+# See additional sources in the following links ---------------------------
 
 # https://www.datanovia.com/en/lessons/determining-the-optimal-number-of-clusters-3-must-know-methods/
 # https://cran.r-project.org/web/packages/dendextend/vignettes/introduction.html
+# https://cran.r-project.org/web/packages/ggalluvial/vignettes/ggalluvial.html
