@@ -79,8 +79,8 @@ movie_clustered %>%
 # Investigate the optimal k using "elbow", silhouette, and the gap --------
 set.seed(0)
 # do not run this, takes too long to run!
-# examine_k <- NbClust::NbClust(data = select(movies, -movie_title) %>% 
-#                                 sample_n(1000) %>% 
+# examine_k <- NbClust::NbClust(data = select(movies, -movie_title) %>%
+#                                 sample_n(1000) %>%
 #                                 select_if(~{sum(.)>=150}),
 #                               distance = "binary",
 #                               min.nc = 1,
@@ -91,13 +91,14 @@ set.seed(0)
 library(factoextra)
 
 # Elbow method
-# set.seed(0)
-# elbow_movies <- fviz_nbclust(x = select(movies, -movie_title),
-#                              cluster::pam, method = "wss",
-#                              diss = movie_dist,
-#                              k.max = 8, nboot = 100,
-#                              verbose = TRUE) +
-#   labs(subtitle = "Elbow method")
+set.seed(0)
+
+elbow_movies <- fviz_nbclust(x = select(movies, -movie_title),
+                             cluster::pam, method = "wss",
+                             diss = movie_dist,
+                             k.max = 8, nboot = 100,
+                             verbose = TRUE) +
+  labs(subtitle = "Elbow method")
 # saveRDS(elbow_movies, file = "rds_files/elbow_movies.rds")
 elbow_movies <- readRDS("rds_files/elbow_movies.rds")
 
@@ -131,7 +132,7 @@ library(dendextend)
 
 as.dendrogram(hclust_movies) %>% 
   set("labels", "") %>% 
-  set("branches_k_color", k = 5) %>% 
+  set("branches_k_color", k = 3) %>% 
   plot(main = "Clustering movies\naverage link function with k=5, binary distance")
 
 movies_hclust_res <- movie_clustered %>% 
