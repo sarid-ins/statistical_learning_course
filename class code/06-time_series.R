@@ -266,4 +266,7 @@ search %>%
 
 # Fitting an ETS model ----------------------------------------------------
 
-
+search %>% 
+  filter(term == "pool") %>% 
+  model(ETS(google_search_volume)) %>% 
+  gg_tsresiduals() 
