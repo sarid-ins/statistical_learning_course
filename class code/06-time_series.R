@@ -266,7 +266,21 @@ search %>%
 
 # Fitting an ETS model ----------------------------------------------------
 
-search %>% 
+optimal_ets_fit <- search %>% 
   filter(term == "pool") %>% 
-  model(ETS(google_search_volume)) %>% 
+  model(ETS(google_search_volume)) 
+
+report(optimal_ets_fit)
+augment(optimal_ets_fit)
+accuracy(optimal_ets_fit)
+
+optimal_ets_fit %>% 
+  forecast(h=12) %>% 
+  autoplot() +
+  autolayer(search %>% filter(term == "pool")) + 
+  geom_line(aes(y = .fitted, colour = "Fitted"), data = augment(optimal_ets_fit))
+
+optimal_ets_fit %>% components() %>% autoplot()
+
+optimal_ets_fit %>% 
   gg_tsresiduals() 
