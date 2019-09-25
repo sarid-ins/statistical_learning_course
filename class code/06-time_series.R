@@ -284,3 +284,8 @@ optimal_ets_fit %>% components() %>% autoplot()
 
 optimal_ets_fit %>% 
   gg_tsresiduals() 
+
+
+# Comparison to a different optimization criteria
+optimal_ets_fit2 <- search %>% filter(term == "pool") %>% model(ETS(google_search_volume, opt_crit = "sigma"))
+report(optimal_ets_fit2)
