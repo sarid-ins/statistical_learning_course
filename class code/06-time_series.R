@@ -14,7 +14,7 @@ movies <- read_csv("datasets/scraped_imdb/movie_db_clean.csv")
 movies_ts <- movies %>% 
   filter(!is.na(title_year)) %>% 
   count(title_year) %>% 
-  as_tsibble(key = NULL, index = title_year, regular = TRUE)
+  as_tsibble(key = NULL, index = title_year, regular = FALSE)
 
 # When we use the regular = TRUE flag, tsibble "understands" that the data is given in yearly intervals
 
@@ -62,7 +62,7 @@ search <- read_csv("datasets/time_series/zombieTimeline.csv", skip = 3,
   mutate(month = yearmonth(month)) %>% # vice verse using mutate(month = lubridate::ymd(paste0(month, "-01"))) but is suboptimal
   as_tsibble(key = term, index = month, regular = TRUE)
 
-autoplot(search, .vars = google_search_volume) + 
+autoplot(search, .vars = google_search_volume, size = 1.5) + 
   facet_wrap(~term)
 
 # The use of the yearmonth() function is important to get the right seasonality!
@@ -121,10 +121,10 @@ movies_ts_regular %>%
 
 baseline_models <- search %>% 
   filter_index("2004 Jan" ~ "2017 Nov") %>% 
-  model(MEAN(google_search_volume),
-        NAIVE(google_search_volume),
-        SNAIVE(google_search_volume),
-        RW(google_search_volume ~ drift()))
+  model(mean = MEAN(google_search_volume),
+        naive = NAIVE(google_search_volume),
+        s_naive = SNAIVE(google_search_volume),
+        drift = RW(google_search_volume ~ drift()))
 
 testset_models <- search %>% 
   filter_index("2017 Dec" ~ .)
@@ -140,7 +140,7 @@ baseline_models %>%
 baseline_models %>%
   filter(term == "pool") %>%
   forecast(h = 12) %>% 
-  autoplot(level = NULL, size = 1, linetype = "dashed") + 
+  autoplot(size = 1, linetype = "dashed") + 
   autolayer(search %>% 
               filter(term == "pool") %>% 
               filter_index("2015 Jan" ~ .),
@@ -170,6 +170,22 @@ baseline_models %>%
 
 baseline_models %>% 
   augment()
+
+baseline_models %>% 
+  filter(term == "pool") %>% 
+  augment() %>% 
+  group_by(.model) %>% 
+  slice(1:36) %>% 
+  ggplot(aes(x = month, color = .model, y = .fitted)) + 
+  geom_line(size = 1) + 
+  geom_line(data = 
+              baseline_models %>% 
+              filter(term == "pool") %>% 
+              augment() %>% 
+              slice(1:36),
+            inherit.aes = F,
+            aes(x = month, y = google_search_volume),
+            color = "black", size = 0.5) 
 
 # plot the distribution of residuals:
 
@@ -221,7 +237,7 @@ movies_ts_regular %>%
   forecast(h = 4) %>% 
   autoplot(level = NULL, size = 3) + 
   autolayer(movies_ts_regular %>% filter(title_year <= 2005), color = "black") + 
-  coord_cartesian(xlim = c(1990, 2005)) + 
+  # coord_cartesian(xlim = c(1990, 2005)) + 
   ggtitle("Forecast on the number of titles per year (movies)")
 
 
@@ -268,9 +284,10 @@ search %>%
 
 optimal_ets_fit <- search %>% 
   filter(term == "pool") %>% 
-  model(ETS(google_search_volume)) 
+  model(overall = ETS(google_search_volume),
+        with_trend = ETS(google_search_volume ~ trend("A"))) 
 
-report(optimal_ets_fit)
+report(optimal_ets_fit %>% select(term, with_trend))
 augment(optimal_ets_fit)
 accuracy(optimal_ets_fit)
 
